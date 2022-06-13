@@ -1,13 +1,12 @@
 {
 	admin off
+	auto_https off
 }
 
-{$SEARXNG_HOSTNAME} {
+http://{$SEARXNG_HOSTNAME} {
 	log {
 		output discard
 	}
-
-	tls {$SEARXNG_TLS}
 
 	@api {
 		path /config
