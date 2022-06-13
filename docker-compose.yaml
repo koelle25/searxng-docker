@@ -3,28 +3,29 @@ version: '3.7'
 services:
 
   caddy:
-    container_name: caddy
+    container_name: searxng-caddy
     image: caddy:2-alpine
-    network_mode: host
+    restart: unless-stopped
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data:rw
       - caddy-config:/config:rw
+    networks:
+      - default
+      - proxy
     environment:
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-http://localhost:80}
       - SEARXNG_TLS=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE
       - DAC_OVERRIDE
 
   redis:
-    container_name: redis
-    image: "redis:alpine"
+    container_name: searxng-redis
+    image: redis:alpine
+    restart: unless-stopped
     command: redis-server --save "" --appendonly "no"
-    networks:
-      - searxng
     tmpfs:
       - /var/lib/redis
     cap_drop:
@@ -37,14 +38,12 @@ services:
   searxng:
     container_name: searxng
     image: searxng/searxng:latest
-    networks:
-      - searxng
-    ports:
-     - "127.0.0.1:8080:8080"
+    restart: unless-stopped
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
       - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
+      - TZ=Europe/Berlin
     cap_drop:
       - ALL
     cap_add:
@@ -57,11 +56,21 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
+
 networks:
-  searxng:
-    ipam:
-      driver: default
+  proxy:
+    external: true
 
 volumes:
   caddy-data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: 'vers=3,addr=192.168.1.5,rw,nolock'
+      device: ':/volume1/homeserver/searx/caddy-data'
   caddy-config:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: 'vers=3,addr=192.168.1.5,rw,nolock'
+      device: ':/volume1/homeserver/searx/caddy-config'
